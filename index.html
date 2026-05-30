@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SIC BO - ROYAL 3-DICE CASINO</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- 🎰 ক্যাসিনো হেডার প্যানেল (ব্যালেন্স বক্স সহ ১ শতভাগ ডাইস-৩ডি স্ট্যান্ডার্ডে নিখুঁত লক ভাই ভাই) -->
+    <div class="header">
+        <div class="brand">
+            <div class="name">SIC BO</div>
+            <div class="game">MACAO 3-DICE KING</div>
+        </div>
+        <div class="header-right">
+            <button class="sound-btn" id="mute-btn" onclick="toggleMute()">🔊</button>
+            <div class="balance-box">৳ <span id="user-balance">0.00</span></div>
+        </div>
+    </div>
+
+    <!-- 🎰 লাইভ ৩-ডাইস রোলিং গ্লাস বোল এরিয়া ভাই ভাই -->
+    <div class="dice-bowl-zone">
+        <div class="bowl-window-frame" id="dice-container-flex">
+            <!-- ৩টি ক্যাসিনো থ্রিডি ডাইস ঘর এখানে ওয়ান-শটে নিখুঁত জেনারেট হবে ভাই ভাই -->
+            <div class="sicbo-dice">🎲</div>
+            <div class="sicbo-dice">🎲</div>
+            <div class="sicbo-dice">🎲</div>
+        </div>
+        <!-- লাইভ যোগফল কাউন্টার ব্যাজ -->
+        <div class="total-sum-badge" id="total-sum-display">TOTAL: 0</div>
+    </div>
+
+    <!-- 🎯 বাজি ধরার প্রধান ২টি নিয়ন বেٹنگ বোর্ড ঘর (১.৯৫ ওডস কড়া লক ভাই ভাই) -->
+    <div class="betting-board">
+        <button class="bet-board-btn side-small-btn" id="board-SMALL" onclick="selectSicBoSide('SMALL')">
+            <span class="board-label">SMALL (৪-১০) 🔽</span>
+            <span class="board-odds">x1.95</span>
+        </button>
+        <button class="bet-board-btn side-big-btn" id="board-BIG" onclick="selectSicBoSide('BIG')">
+            <span class="board-label">BIG (১১-১৭) 🔼</span>
+            <span class="board-odds">x1.95</span>
+        </button>
+    </div>
+
+    <!-- 🏆 ইন-লাইন লাইভ স্কোরিং ও উইন-লস মেসেজ বার -->
+    <div class="win-status-container" id="win-status-box">
+        <span id="win-text-msg">SMALL বা BIG সিলেক্ট করে ROLL বোতাম চাপুন ভাই ভাই!</span>
+    </div>
+
+    <!-- 🎛️ কন্ট্রোল প্যানেল এরিয়া (৳১-৳২০০০0 প্লাস-মাইনাস ও ROLL বোতাম পাশাপাশি লক ভাই) -->
+    <div class="footer-controls">
+        <div class="play-section">
+            <div class="bet-selector">
+                <button class="bet-btn-nav" onclick="adjustBet('minus')">−</button>
+                <div style="text-align: center; width: 60px;">
+                    <div style="font-size: 9px; color: #aaa; font-weight: bold;">BET</div>
+                    <div style="font-size: 15px; font-weight: 900; color: #fff;" id="bet-display">৳৫০</div>
+                </div>
+                <button class="bet-btn-nav" onclick="adjustBet('plus')">+</button>
+            </div>
+
+            <button class="play-btn" id="spin-btn" onclick="handleSicBoRollAction()">ROLL</button>
+
+            <div class="icon-group">
+                <button class="icon-btn" id="auto-btn" onclick="toggleAuto()">🔄</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 🔌 [উইনগো কালার ট্রেড সিঙ্ক - ইউনিভার্সাল সকেট ইঞ্জিন লাইব্রেরি ভাই] -->
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlUserId = urlParams.get('userId') || urlParams.get('id') || urlParams.get('username') || "guest_user";
+        const urlWallet = urlParams.get('wallet') || "main";
+        
+        const SERVER_URL = window.location.origin;
+
+        let balance = 0.00;
+        let currentBet = 50; 
+        let selectedSide = null; 
+        let isSpinning = false; 
+        let isAuto = false;
+        let isMuted = false;
+        let autoInterval = null;
+
+        // ডাইস ইমোজি ম্যাপিং চাবি
+        const diceEmojiMap = {
+            1: "⚀", 2: "⚁", 3: "⚂", 4: "⚃", 5: "⚄", 6: "⚅"
+        };
+
+        // 🧠 [১ শতভাগ একুরেট ৩-ডাইস হাই-স্পিড রোলিং এনিমেশন ইঞ্জিন ভাই ভাই]
+        function animateSicBoDiceRolling(serverData) {
+            const container = document.getElementById("dice-container-flex");
+            const sumBadge = document.getElementById("total-sum-display");
+            const finalDice = serverData.dice || [1, 1, 1];
+
+            let rollCount = 0;
+            
+            // ⏱️ ৮০ মিলি-сеকেন্ড পর পর হাই-স্পিড ৩-ডাইস ব্লিঙ্কিং এনিমেশন লুপ ফায়ার
+            const rollTimeline = setInterval(() => {
+                container.innerHTML = "";
+                for (let i = 0; i < 3; i++) {
+                    const randomVal = Math.floor(Math.random() * 6) + 1;
+                    const diceDiv = document.createElement("div");
+                    diceDiv.className = "sicbo-dice dice-shake-active";
+                    diceDiv.innerText = diceEmojiMap[randomVal];
+                    container.appendChild(diceDiv);
+                }
+                rollCount++;
+
+                if (rollCount >= 12) {
+                    clearInterval(rollTimeline);
+                    container.innerHTML = "";
+                    
+                    // সার্ভার থেকে আসা ওরিজিনাল ফাইনাল ৩টি ডাইস পপ-আপ লক ভাই ভাই
+                    finalDice.forEach(val => {
+                        const diceDiv = document.createElement("div");
+                        diceDiv.className = "sicbo-dice final-dice-pop";
+                        diceDiv.innerText = diceEmojiMap[val];
+                        container.appendChild(diceDiv);
+                    });
+
+                    sumBadge.innerText = `TOTAL: ${serverData.sum}`;
+                    showFinalGameReward(serverData.status, serverData.winAmount, serverData.result, serverData.sum);
+                }
+            }, 800 / 10); 
+        }
+
+        // 🛫 কোর ROLL বোতাম ট্রিগার অ্যাকশন গেটওয়ে ভাই ভাই
+        async function handleSicBoRollAction() {
+            if (isSpinning) return;
+            if (!selectedSide) {
+                alert("🚨 আগে বাজি ধরার যেকোনো ১টি পক্ষ (SMALL বা BIG) সিলেক্ট করুন ভাই!");
+                isAuto = false;
+                document.getElementById("auto-btn").classList.remove("active");
+                return;
+            }
+
+            isSpinning = true;
+            document.getElementById("spin-btn").disabled = true;
+            document.getElementById("win-status-box").className = "win-status-container";
+            document.getElementById("win-text-msg").innerText = "🎲 ডাইস কাপ ঝাঁকুনি দেওয়া হচ্ছে মাখন স্পিডে...";
+
+            playAudio('spin');
+
+            try {
+                const response = await fetch(`${SERVER_URL}/api/sicbo-roll`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userId: urlUserId,
+                        amount: parseFloat(currentBet),
+                        wallet: urlWallet,
+                        prediction: selectedSide
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data && data.success === true) {
+                    balance = parseFloat(data.balance);
+                    if (window.parent) window.parent.postMessage({ action: "refresh_wallet" }, "*");
+                    if (window.top) window.top.postMessage({ action: "refresh_wallet" }, "*");
+
+                    animateSicBoDiceRolling(data);
+                } else {
+                    alert(data.message || "❌ Insufficient Balance! Please Recharge BDT.");
+                    stopSicBoState();
+                }
+            } catch (err) {
+                alert("⚠️ সেশনアウト! আবার ROLL বোতাম চাপুন ভাই ভাই।");
+                stopSicBoState();
+            }
+        }
+
+        function showFinalGameReward(status, winAmount, winnerSide, totalSum) {
+            const msgBox = document.getElementById("win-status-box");
+            const textMsg = document.getElementById("win-text-msg");
+
+            if (status === "win") {
+                playAudio('win');
+                msgBox.className = "win-status-container win-glow-bar";
+                textMsg.innerText = `🏆 মেগা উইন!! টোটাল পয়েন্ট: ${totalSum} (${winnerSide}) [৳${winAmount}]`;
+            } else if (winnerSide === "TRIPLE") {
+                playAudio('wheel');
+                msgBox.className = "win-status-container lose-glow-bar";
+                textMsg.innerText = `❌ স্পেশাল ট্রিপল ল্যান্ড করেছে! ডাইসের সব মান সমান সমান। বাজি লস!`;
+            } else {
+                playAudio('wheel'); 
+                msgBox.className = "win-status-container lose-glow-bar";
+                textMsg.innerText = `❌ ফলাফল এসেছে: ${winnerSide} (টোটাল: ${totalSum})। বাজি লস হয়েছে ভাই!`;
+            }
+
+            document.getElementById("user-balance").innerText = balance.toFixed(2);
+            stopSicBoState();
+
+            if (isAuto) {
+                autoInterval = setTimeout(() => {
+                    if (isAuto) handleSicBoRollAction();
+                }, 2800); 
+            }
+        }
+
+        if (typeof io !== 'undefined') {
+            const socket = io();
+            socket.on("balanceUpdate", (data) => {
+                if (data && data.username === urlUserId) {
+                    if (window.parent) window.parent.postMessage({ action: "refresh_wallet" }, "*");
+                    fetchLiveBalance();
+                }
+            });
+        }
+
+               async function fetchLiveBalance() {
+            try {
+                const response = await fetch(`${SERVER_URL}/api/sicbo-balance?userId=${urlUserId}&wallet=${urlWallet}`);
+                const data = await response.json();
+                if (data && data.success) {
+                    balance = parseFloat(data.balance);
+                    document.getElementById("user-balance").innerText = balance.toFixed(2);
+                }
+            } catch (e) { console.error("Balance query check pass"); }
+        }
+
+        window.onload = () => {
+            if (window.parent) window.parent.postMessage({ action: "refresh_wallet" }, "*");
+            fetchLiveBalance();
+        };
+
+        function selectSicBoSide(side) {
+            if (isSpinning) return;
+            selectedSide = side;
+            document.querySelectorAll(".bet-board-btn").forEach(b => b.classList.remove("active-side-bet"));
+            document.getElementById(`board-${side}`).classList.add("active-side-bet");
+            playAudio('click');
+        }
+
+        function adjustBet(action) {
+            if (isSpinning) return;
+            if (action === 'minus' && currentBet > 1) {
+                if (currentBet <= 10) currentBet -= 1;
+                else if (currentBet <= 100) currentBet -= 10;
+                else if (currentBet <= 1000) currentBet -= 100;
+                else currentBet -= 500;
+            }
+            if (action === 'plus' && currentBet < 20000) {
+                if (currentBet < 10) currentBet += 1;
+                else if (currentBet < 100) currentBet += 10;
+                else if (currentBet < 1000) currentBet += 100;
+                else currentBet += 500;
+            }
+            if (currentBet < 1) currentBet = 1;
+            if (currentBet > 20000) currentBet = 20000;
+            
+            document.getElementById("bet-display").innerText = `৳${currentBet}`;
+            playAudio('click');
+        }
+
+        function toggleMute() {
+            isMuted = !isMuted;
+            document.getElementById("mute-btn").innerText = isMuted ? "🔇" : "🔊";
+            document.getElementById("mute-btn").classList.toggle("muted-active", isMuted);
+            slotSounds.click.muted = isMuted;
+            slotSounds.spin.muted = isMuted;
+            slotSounds.win.muted = isMuted;
+            slotSounds.wheel.muted = isMuted;
+        }
+
+        function toggleAuto() {
+            isAuto = !isAuto;
+            document.getElementById("auto-btn").classList.toggle("active", isAuto);
+            if (isAuto && !isSpinning) handleSicBoRollAction();
+            playAudio('click');
+        }
+
+        function stopSicBoState() {
+            isSpinning = false;
+            document.getElementById("spin-btn").disabled = false;
+            if (!isAuto && autoInterval) clearTimeout(autoInterval);
+        }
+
+        // 🎯 [৪টি ওরিজিনাল প্রিমিয়াম ক্যাসিনো সাউন্ড ও বাফার গেটওয়ে লক ভাই ভাই]
+        const slotSounds = {
+            click: new Audio('click2.mp3'),
+            spin: new Audio('spin2.mp3'),
+            win: new Audio('win2.mp3'),
+            wheel: new Audio('wheel1.mp3')
+        };
+        Object.values(slotSounds).forEach(s => s.load());
+
+        function playAudio(type) { 
+            if (isMuted) return; 
+            try { 
+                slotSounds[type].currentTime = 0; 
+                slotSounds[type].play(); 
+            } catch(e){} 
+        }
+    </script>
+</body>
+</html>
+ 
