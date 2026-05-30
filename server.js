@@ -25,7 +25,7 @@ app.use((req, res, next) => {
 });
 
 // 🎰 [উইনগো কালার ট্রেড ওরিজিনাল ডোমেইন সিঙ্ক]
-const MAIN_SITE_URL = "https://onrender.com"; 
+const MAIN_SITE_URL = "https://betlover247.onrender.com"; 
 
 // 💰 ১. লাইভ অ্যাকাউন্ট ব্যালেন্স নিয়ে আসার ডেডিকেটেড গেটওয়ে
 app.get('/api/sicbo-balance', async (req, res) => {
@@ -191,5 +191,5 @@ app.get('/', (req, res) => { res.sendFile(path.join(__dirname, 'index.html')); }
 
 io.on('connection', (socket) => { console.log("Player connected to Royal Sic Bo 3-Dice Engine!"); });
 
-const PORT = process.env.PORT || 4000; 
+const PORT = process.env.PORT || 5100; 
 server.listen(PORT, () => { console.log(`🎡 Royal Sic Bo Engine Running on port ${PORT}`); });
